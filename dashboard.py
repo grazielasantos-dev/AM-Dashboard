@@ -1,37 +1,31 @@
+# COPIE E COLE ESTE CÓDIGO INTEIRO NO SEU dashboard.py
 import pandas as pd
 import streamlit as st
 import plotly.express as px
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
-# --- CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="Dashboard Financeiro",
-                   page_icon=":bar_chart:",
-                   layout="wide")
+st.set_page_config(page_title="Dashboard Financeiro", page_icon=":bar_chart:", layout="wide")
 
-# --- FUNÇÃO DE VERIFICAÇÃO DE SENHA (TEMPORARIAMENTE DESATIVADA) ---
-# def check_password():
-#     """Retorna True se o usuário digitou a senha correta."""
-#     def password_entered():
-#         if st.session_state["password"] == st.secrets["APP_PASSWORD"]:
-#             st.session_state["password_correct"] = True
-#             del st.session_state["password"]
-#         else:
-#             st.session_state["password_correct"] = False
-#     if st.session_state.get("password_correct", False):
-#         return True
-#     st.text_input(
-#         "Digite a senha para acessar o dashboard", type="password", on_change=password_entered, key="password"
-#     )
-#     if "password_correct" in st.session_state and not st.session_state["password_correct"]:
-#         st.error("😕 Senha incorreta. Tente novamente.")
-#     return False
+def check_password():
+    def password_entered():
+        if st.session_state["password"] == st.secrets["APP_PASSWORD"]:
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]
+        else:
+            st.session_state["password_correct"] = False
+    if st.session_state.get("password_correct", False):
+        return True
+    st.text_input(
+        "Digite a senha para acessar o dashboard", type="password", on_change=password_entered, key="password"
+    )
+    if "password_correct" in st.session_state and not st.session_state["password_correct"]:
+        st.error("😕 Senha incorreta. Tente novamente.")
+    return False
 
-# --- EXECUÇÃO PRINCIPAL (TEMPORARIAMENTE SEM SENHA) ---
-# if not check_password():
-#     st.stop()
+if not check_password():
+    st.stop()
 
-# --- FUNÇÃO PARA CARREGAR DADOS DO GOOGLE SHEETS ---
 @st.cache_data
 def carregar_dados_gsheets():
     scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
@@ -64,7 +58,7 @@ def carregar_dados_gsheets():
 
 df = carregar_dados_gsheets()
 
-# --- BARRA LATERAL (FILTROS) ---
+# --- O RESTANTE DO DASHBOARD ---
 st.sidebar.header("Filtros:")
 df['Ano'] = df['Data'].dt.year
 df['MesNum'] = df['Data'].dt.month
@@ -86,7 +80,6 @@ if centro_custo_selecionado and 'Centro de Custo' in df.columns:
     query_string += " and `Centro de Custo` == @centro_custo_selecionado"
 df_selection = df.query(query_string)
 
-# --- PÁGINA PRINCIPAL ---
 st.title(":bar_chart: Dashboard Financeiro Advocacia")
 st.markdown("##")
 
@@ -94,13 +87,10 @@ if df_selection.empty:
     st.warning("Nenhum dado encontrado para os filtros selecionados.")
     st.stop()
 
-# --- CÁLCULO DOS KPIs ---
 faturamento_total = df_selection[df_selection['Tipo'] == 'Receita']['Valor Realizado'].sum()
 pagamentos_total = df_selection[df_selection['Tipo'] == 'Despesa']['Valor Realizado'].sum()
 lucro_total = df_selection['Valor Realizado'].sum()
 lucratividade = (lucro_total / faturamento_total) * 100 if faturamento_total > 0 else 0
-
-# --- EXIBIÇÃO DOS KPIs ---
 col1, col2, col3, col4 = st.columns(4)
 with col1: st.metric(label="Faturamento Total", value=f"R$ {faturamento_total:,.2f}")
 with col2: st.metric(label="Pagamentos Totais", value=f"R$ {abs(pagamentos_total):,.2f}")
