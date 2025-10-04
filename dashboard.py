@@ -9,27 +9,27 @@ st.set_page_config(page_title="Dashboard Financeiro",
                    page_icon=":bar_chart:",
                    layout="wide")
 
-# --- FUNÇÃO DE VERIFICAÇÃO DE SENHA ---
-def check_password():
-    """Retorna True se o usuário digitou a senha correta."""
-    def password_entered():
-        if st.session_state["password"] == st.secrets["APP_PASSWORD"]:
-            st.session_state["password_correct"] = True
-            del st.session_state["password"]
-        else:
-            st.session_state["password_correct"] = False
-    if st.session_state.get("password_correct", False):
-        return True
-    st.text_input(
-        "Digite a senha para acessar o dashboard", type="password", on_change=password_entered, key="password"
-    )
-    if "password_correct" in st.session_state and not st.session_state["password_correct"]:
-        st.error("😕 Senha incorreta. Tente novamente.")
-    return False
+# --- FUNÇÃO DE VERIFICAÇÃO DE SENHA (TEMPORARIAMENTE DESATIVADA) ---
+# def check_password():
+#     """Retorna True se o usuário digitou a senha correta."""
+#     def password_entered():
+#         if st.session_state["password"] == st.secrets["APP_PASSWORD"]:
+#             st.session_state["password_correct"] = True
+#             del st.session_state["password"]
+#         else:
+#             st.session_state["password_correct"] = False
+#     if st.session_state.get("password_correct", False):
+#         return True
+#     st.text_input(
+#         "Digite a senha para acessar o dashboard", type="password", on_change=password_entered, key="password"
+#     )
+#     if "password_correct" in st.session_state and not st.session_state["password_correct"]:
+#         st.error("😕 Senha incorreta. Tente novamente.")
+#     return False
 
-# --- EXECUÇÃO PRINCIPAL ---
-if not check_password():
-    st.stop()
+# --- EXECUÇÃO PRINCIPAL (TEMPORARIAMENTE SEM SENHA) ---
+# if not check_password():
+#     st.stop()
 
 # --- FUNÇÃO PARA CARREGAR DADOS DO GOOGLE SHEETS ---
 @st.cache_data
@@ -68,10 +68,7 @@ df = carregar_dados_gsheets()
 st.sidebar.header("Filtros:")
 df['Ano'] = df['Data'].dt.year
 df['MesNum'] = df['Data'].dt.month
-meses_pt = {
-    1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril', 5: 'Maio', 6: 'Junho',
-    7: 'Julho', 8: 'Agosto', 9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro'
-}
+meses_pt = {1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril', 5: 'Maio', 6: 'Junho', 7: 'Julho', 8: 'Agosto', 9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro'}
 df['Mes'] = df['MesNum'].map(meses_pt)
 anos_disponiveis = sorted(df['Ano'].unique())
 anos_selecionados = st.sidebar.multiselect("Selecione o Ano:", options=anos_disponiveis, default=anos_disponiveis)
