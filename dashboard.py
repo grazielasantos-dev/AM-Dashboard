@@ -9,50 +9,66 @@ st.set_page_config(page_title="Dashboard Financeiro",
                    page_icon=":bar_chart:",
                    layout="wide")
 
+# --- FUNÇÃO DE VERIFICAÇÃO DE SENHA ---
+def check_password():
+    """Retorna True se o usuário digitou a senha correta."""
+
+    def password_entered():
+        """Checa se a senha digitada pelo usuário é a correta."""
+        if st.session_state["password"] == st.secrets["APP_PASSWORD"]:
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]
+        else:
+            st.session_state["password_correct"] = False
+
+    if st.session_state.get("password_correct", False):
+        return True
+
+    # Pede a senha
+    st.text_input(
+        "Digite a senha para acessar o dashboard", type="password", on_change=password_entered, key="password"
+    )
+    if "password_correct" in st.session_state and not st.session_state["password_correct"]:
+        st.error("😕 Senha incorreta. Tente novamente.")
+    return False
+
+# --- EXECUÇÃO PRINCIPAL ---
+if not check_password():
+    st.stop() # Para a execução se a senha não for correta
+
+# Se a senha estiver correta, o dashboard continua a ser construído abaixo.
+
 # --- FUNÇÃO PARA CARREGAR DADOS DO GOOGLE SHEETS ---
 @st.cache_data
 def carregar_dados_gsheets():
-    # Autorização para acessar o Google Sheets
     scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
     creds_dict = st.secrets["gcp_service_account"]
     creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
     client = gspread.authorize(creds)
-
-    # NOME EXATO da sua Planilha Google
-    NOME_DA_PLANILHA = "Dados Dashboard Financeiro" # <-- MUDE AQUI SE O NOME DA SUA PLANILHA FOR DIFERENTE
-    
+    NOME_DA_PLANILHA = "Dados Dashboard Financeiro"
     spreadsheet = client.open(NOME_DA_PLANILHA)
-    
-    # Leitura dos dados de cada aba
     df_receitas = pd.DataFrame(spreadsheet.worksheet('contas_recebidas').get_all_records())
     df_pagamentos = pd.DataFrame(spreadsheet.worksheet('contas_pagas').get_all_records())
-
-    # --- Processamento dos dados ---
     mapa_colunas = {
         'Vencimento': 'Data', 'Descrição': 'Descrição', 'Categoria': 'Categoria',
         'Centro de Custo': 'Centro de Custo', 'Valor categoria/centro de custo': 'Valor Realizado', 'Nome': 'Nome'
     }
     df_receitas = df_receitas.rename(columns=mapa_colunas)
     df_pagamentos = df_pagamentos.rename(columns=mapa_colunas)
-    
-    # Limpa e converte a coluna de valor para número
-    # Usa .astype(str) para garantir que o .str.replace funcione
     if 'Valor Realizado' in df_receitas.columns:
         df_receitas['Valor Realizado'] = pd.to_numeric(df_receitas['Valor Realizado'].astype(str).str.replace('.', '', regex=False).str.replace(',', '.', regex=False), errors='coerce').fillna(0)
     if 'Valor Realizado' in df_pagamentos.columns:
         df_pagamentos['Valor Realizado'] = pd.to_numeric(df_pagamentos['Valor Realizado'].astype(str).str.replace('.', '', regex=False).str.replace(',', '.', regex=False), errors='coerce').fillna(0)
-    
     df_receitas['Tipo'] = 'Receita'
     df_pagamentos['Tipo'] = 'Despesa'
     colunas_essenciais = ['Data', 'Descrição', 'Categoria', 'Centro de Custo', 'Valor Realizado', 'Tipo', 'Nome']
+    if 'Nome' not in df_receitas.columns: df_receitas['Nome'] = 'N/A'
     if 'Nome' not in df_pagamentos.columns: df_pagamentos['Nome'] = 'N/A'
-        
     df_completo = pd.concat([df_receitas[colunas_essenciais], df_pagamentos[colunas_essenciais]], ignore_index=True)
     df_completo['Data'] = pd.to_datetime(df_completo['Data'], errors='coerce', dayfirst=True)
     df_completo.dropna(subset=['Data'], inplace=True)
     return df_completo
 
-# Chama a função para carregar os dados
 df = carregar_dados_gsheets()
 
 # --- BARRA LATERAL (FILTROS) ---
@@ -77,21 +93,21 @@ if centro_custo_selecionado and 'Centro de Custo' in df.columns:
     query_string += " and `Centro de Custo` == @centro_custo_selecionado"
 df_selection = df.query(query_string)
 
-# --- PÁGINA PRINCIPAL ---
-st.title(":bar_chart: Dashboard Financeiro Advocacia")
-st.markdown("##")
-
 if df_selection.empty:
     st.warning("Nenhum dado encontrado para os filtros selecionados.")
     st.stop()
 
-# --- CÁLCULO DOS KPIs (LÓGICA CORRIGIDA) ---
+# --- PÁGINA PRINCIPAL ---
+st.title(":bar_chart: Dashboard Financeiro Advocacia")
+st.markdown("##")
+
+# --- CÁLCULO DOS KPIs ---
 faturamento_total = df_selection[df_selection['Tipo'] == 'Receita']['Valor Realizado'].sum()
 pagamentos_total = df_selection[df_selection['Tipo'] == 'Despesa']['Valor Realizado'].sum()
 lucro_total = df_selection['Valor Realizado'].sum()
 lucratividade = (lucro_total / faturamento_total) * 100 if faturamento_total > 0 else 0
 
-# --- EXIBIÇÃO DOS KPIs (LÓGICA CORRIGIDA) ---
+# --- EXIBIÇÃO DOS KPIs ---
 col1, col2, col3, col4 = st.columns(4)
 with col1: st.metric(label="Faturamento Total", value=f"R$ {faturamento_total:,.2f}")
 with col2: st.metric(label="Pagamentos Totais", value=f"R$ {abs(pagamentos_total):,.2f}")
@@ -111,7 +127,6 @@ for ano in anos_para_analise:
     lucro = df_ano['Valor Realizado'].sum()
     lucratividade_anual = (lucro / faturamento) * 100 if faturamento > 0 else 0
     dados_anuais.append({'Ano': ano, 'Lucratividade': lucratividade_anual})
-
 if len(dados_anuais) > 0:
     df_anual = pd.DataFrame(dados_anuais)
     cols = st.columns(len(df_anual))
